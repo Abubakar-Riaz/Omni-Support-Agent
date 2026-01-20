@@ -1,0 +1,8 @@
+# .gitignore content
+venv/
+__pycache__/
+*.pyc
+.env
+.DS_Store
+chroma_db/
+agent_db/

@@ -6,3 +6,7 @@ __pycache__/
 .DS_Store
 chroma_db/
 agent_db/
+# Ignore the generated databases
+*.db
+data/orders.db
+data/vector_store/

@@ -16,7 +16,7 @@ my_tools = [query_sql_db, query_policy_rag]
 
 agent_executor = create_react_agent(llm, my_tools)
 
-def chat_with_bot(user_input):
+def process_query(user_input:str)->str:
     print(f"\nUser: {user_input}")
     
     system_instruction = """
@@ -40,12 +40,11 @@ You are a helpful assistant.
     try:
         response = agent_executor.invoke({"messages": messages})
         
-        print(f"Agent: {response['messages'][-1].content}")
-        
+        #print(f"Agent: {response['messages'][-1].content}")
+        return response['messages'][-1].content
     except Exception as e:
-        print(f"Error: {e}")
+        #print(f"Error: {e}")
+        return f"An error occured:{str(e)}"
 
 if __name__ == "__main__":
-    chat_with_bot("What is the return policy for sticker packs?")
-    
-    chat_with_bot("How many orders are currently pending?")
+    print(process_query("What is the return policy for sticker packs?"))

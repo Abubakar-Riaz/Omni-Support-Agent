@@ -1,50 +1,48 @@
 import os
 from dotenv import load_dotenv
-import sys
-from langchain_core.messages import SystemMessage, HumanMessage
-from langchain_groq import ChatGroq
+from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import create_react_agent
-
-# Import your tools
-from tools import query_sql_db, query_policy_rag
+from langgraph.checkpoint.memory import MemorySaver
+from tools import query_policy_rag,query_sql_db,DB_SCHEMA
 
 load_dotenv()
+if not os.getenv("GITHUB_API_KEY"):
+        raise ValueError("GITHUB_API_KEY env not found")
 
-llm = ChatGroq(api_key=os.getenv("GROQ_API_KEY"),model="llama-3.1-8b-instant", temperature=0)
+llm=ChatOpenAI(
+        model="gpt-4o-mini",
+        base_url="https://models.inference.ai.azure.com",
+        temperature=0,
+        api_key=os.getenv("GITHUB_API_KEY")
+)
 
-my_tools = [query_sql_db, query_policy_rag]
+system_prompt=f"""
+You are a senior Customer Support Agent for Omni-Support Inc.
 
-agent_executor = create_react_agent(llm, my_tools)
+1. **Specific Order Lookups** (Status, Refund calculation, "Where is my item?"):
+   - Use `query_sql_db`.
+   - **Requirement**: You MUST have an Order ID (e.g., ORDxxxx) to use this tool.
+   - If the user asks about "my order" but hasn't given an ID, ask for the ID first.
+   
+2. **General Policy Questions** (Rules, Shipping Times, "Can I return X?"):
+   - Use `query_policy_rag`. 
+   - **CRITICAL**: DO NOT use the SQL database for general rules, even if the word "order" is mentioned. 
+   - Example: "Can I cancel my order?" -> Use RAG, do not query DB.
 
-def process_query(user_input:str)->str:
-    print(f"\nUser: {user_input}")
-    
-    system_instruction = """
-You are a helpful assistant.
-    You have access to two tools:
-    1. query_sql_db: Use this for order numbers, counts, and statuses.
-    2. query_policy_rag: Use this for returns, refunds, and rules.
+DATA CONTEXT:
+- Database Schema: {DB_SCHEMA}
+- **PRICING**: The 'Price' column is in **CENTS**. (Example: 2599 = $25.99). 
+- Always convert cents to dollars when displaying prices or calculating refunds.
 
-    When you are asked a question:
-    - Think about which tool to use.
-    - Call the tool directly.
-    - Once you get the result, answer the user in plain English.
-    Note:Donot return in XML format
-    """
-    
-    messages = [
-        SystemMessage(content=system_instruction),
-        HumanMessage(content=user_input)
-    ]
-    
-    try:
-        response = agent_executor.invoke({"messages": messages})
-        
-        #print(f"Agent: {response['messages'][-1].content}")
-        return response['messages'][-1].content
-    except Exception as e:
-        #print(f"Error: {e}")
-        return f"An error occured:{str(e)}"
+MEMORY:
+- You have memory of this conversation. If the user provided an Order ID earlier, reuse it.
+"""
 
-if __name__ == "__main__":
-    print(process_query("What is the return policy for sticker packs?"))
+memory=MemorySaver()
+
+graph=create_react_agent(
+        model=llm,
+        tools=[query_policy_rag,query_sql_db],
+        prompt=system_prompt,
+        checkpointer=memory
+)

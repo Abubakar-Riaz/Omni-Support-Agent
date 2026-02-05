@@ -12,7 +12,7 @@ table_creation_query="""
     Cust_Name TEXT NOT NULL,
     Item_Name TEXT NOT NULL,
     Status TEXT NOT NULL CHECK(Status IN('Shipped', 'Pending', 'Delayed', 'Cancelled')),
-    Price INTEGER NOT NULL
+    Price FLOAT NOT NULL
     );
 """
 cursor.execute(table_creation_query)
@@ -23,14 +23,14 @@ print("Table is ready")
 
 table_insertion_query="""
 INSERT INTO orders (ID, Cust_Name, Item_Name, Status, Price) VALUES
-('ORD0001', 'Alice Johnson', 'Wireless Mouse', 'Delayed', 2599),
-('ORD0002', 'Bob Smith', 'Mechanical Keyboard', 'Shipped', 8999),
-('ORD0003', 'Carlos Rivera', 'USB-C Charger', 'Pending', 1999),
-('ORD0004', 'Diana Lee', 'Noise Cancelling Headphones', 'Cancelled', 12999),
-('ORD0005', 'Ethan Brown', 'Sticker Pack', 'Shipped', 199),
-('ORD0006', 'Fiona Green', '4K Monitor', 'Pending', 34999),
-('ORD0007', 'Alice Johnson', 'Laptop Stand', 'Shipped', 4599),
-('ORD0008', 'George White', 'External Hard Drive', 'Delayed', 7499);
+('ORD0001', 'Alice Johnson', 'Wireless Mouse', 'Delayed', 25.99),
+('ORD0002', 'Bob Smith', 'Mechanical Keyboard', 'Shipped', 89.99),
+('ORD0003', 'Carlos Rivera', 'USB-C Charger', 'Pending', 19.99),
+('ORD0004', 'Diana Lee', 'Noise Cancelling Headphones', 'Cancelled', 12.999),
+('ORD0005', 'Ethan Brown', 'Sticker Pack', 'Shipped', 1.99),
+('ORD0006', 'Fiona Green', '4K Monitor', 'Pending', 349.99),
+('ORD0007', 'Alice Johnson', 'Laptop Stand', 'Shipped', 45.99),
+('ORD0008', 'George White', 'External Hard Drive', 'Delayed', 74.99);
 """
 
 cursor.execute(table_insertion_query)

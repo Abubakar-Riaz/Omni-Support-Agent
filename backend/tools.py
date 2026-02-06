@@ -1,5 +1,8 @@
 import sqlite3
 import os
+import uuid
+from datetime import datetime
+import random
 from langchain_community.embeddings import FastEmbedEmbeddings
 from langchain_chroma import Chroma
 from langchain_core.tools import tool
@@ -7,7 +10,7 @@ from typing import List,Any
 
 DB_PATH='../data/orders.db'
 VECTOR_DB_PATH='../data/vector_store'
-
+RECORDS_FILE='../data/records.log'
 embeddings=FastEmbedEmbeddings()
 
 if os.path.exists(VECTOR_DB_PATH):
@@ -80,6 +83,47 @@ def query_policy_rag(query: str):
     except Exception as e:
         print(f"Policy Error:{str(e)}")
         return [f"Policy Error:{str(e)}"]
+    
+@tool
+def file_ticket(order_id:str,issue:str,priority:str="Normal"):
+    """
+    Files a formal support ticket for issues the Agent cannot resolve immediately
+    (e.g., compensation requests, lost items, angry customers).
+    Returns the Ticket ID.
+    """
+    ticket_id=f"TKT-{uuid.uuid4().hex[:6].upper()}"
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    log_entry = f"[{timestamp}] TICKET: {ticket_id} | Order: {order_id} | Issue: {issue} | Priority: {priority}\n"
+    
+    try:
+        with open(RECORDS_FILE, "a") as f:
+            f.write(log_entry)
+        return f"Ticket {ticket_id} created successfully. A human agent will review it within 24 hours."
+    except Exception as e:
+        return f"Error filing ticket: {str(e)}"
+
+@tool
+def generate_return_label(order_id:str,reason:str="Customer Request"):
+    """
+    Generates a return shipping label ID.
+    ONLY use this if:
+    1. You have confirmed the order exists.
+    2. You have confirmed the item is eligible for return according to Policy.
+    3. The user has explicitly confirmed they want to return it.
+    """
+    label_id=f"LBL-{random.randint(10000,99999)}"
+    timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    log_entry=f"[{timestamp}] LABEL: {label_id} | Order: {order_id} | Reason: {reason}\n"
+
+    try:
+        with open(RECORDS_FILE,"a") as f:
+            f.write(log_entry)
+        return f"Success! Return Label generated: {label_id}. Sent to customer email."
+    except Exception as e:
+        return f"Error generating label: {str(e)}"
+    
 if __name__=="__main__":
     #query_sql_db("Select * from orders")
     query_policy_rag("For how long can i return my item")

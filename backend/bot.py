@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import create_react_agent
 from langgraph.checkpoint.memory import MemorySaver
-from tools import query_policy_rag,query_sql_db,DB_SCHEMA
+from tools import query_policy_rag,query_sql_db,DB_SCHEMA,generate_return_label,file_ticket
 
 load_dotenv()
 if not os.getenv("GITHUB_API_KEY"):
@@ -31,8 +31,19 @@ You are a senior Customer Support Agent for Omni-Support Inc.
 
 DATA CONTEXT:
 - Database Schema: {DB_SCHEMA}
-- **PRICING**: The 'Price' column is in **CENTS**. (Example: 2599 = $25.99). 
-- Always convert cents to dollars when displaying prices or calculating refunds.
+- **PRICING**: The 'Price' column is in **DOLLARS**. Always add '$' sign when display the price. 
+
+### 4. CRITICAL OUTPUT RULES
+- **IDs ARE SACRED:** When a tool returns a Ticket ID (TKT-...) or Label ID (LBL-...), you **MUST** repeat it exactly in your final response to the user.
+- Never say "I filed a ticket" without providing the Reference Number.
+
+COMMUNICATION STYLE
+- Be direct. Only answer the specific question asked. Do not offer policy information unless the user asks for it or it is relevant to a problem (e.g., "Delayed").
+
+2. ACTION TAKING
+- **Refunds/Compensations:** You cannot transfer money directly. Instead, use `file_ticket` to request it for the customer.
+- **Returns:** If an item is eligible (checked via Policy) AND the user confirms, use `generate_return_label`.
+- **Escalations:** If a user is angry or the issue is complex, use `file_ticket` with High priority.
 
 MEMORY:
 - You have memory of this conversation. If the user provided an Order ID earlier, reuse it.
@@ -42,7 +53,7 @@ memory=MemorySaver()
 
 graph=create_react_agent(
         model=llm,
-        tools=[query_policy_rag,query_sql_db],
+        tools=[query_policy_rag,query_sql_db,generate_return_label,file_ticket],
         prompt=system_prompt,
         checkpointer=memory
 )

@@ -1,6 +1,7 @@
-import sqlite3
+import psycopg2
 import os
 import uuid
+from dotenv import load_dotenv
 from datetime import datetime
 import random
 from langchain_community.embeddings import FastEmbedEmbeddings
@@ -8,7 +9,8 @@ from langchain_chroma import Chroma
 from langchain_core.tools import tool
 from typing import List,Any
 
-DB_PATH='../data/orders.db'
+load_dotenv()
+DB_URL = os.getenv("DATABASE_URL")
 VECTOR_DB_PATH='../data/vector_store'
 RECORDS_FILE='../data/records.log'
 embeddings=FastEmbedEmbeddings()
@@ -22,26 +24,54 @@ else:
     print(f"WARNING: Vector store not found at {VECTOR_DB_PATH}. Please run setup_vector_db.py")
     vector_store=None
 
-def get_db_Schema():
-    """Helper:Dynamic schema extraction for LLM"""
-    try:
-        with sqlite3.connect(DB_PATH) as con:
-            cursor=con.cursor()
-            cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-            tables=cursor.fetchall()
-            schema_str=[]
-            for table in tables:
-                table_name=table[0]
-                cursor.execute(f"PRAGMA table_info({table_name})")
-                columns=cursor.fetchall()
-                col_names=[col[1] for col in columns]
-                schema_str.append(f"{table_name}({', '.join(col_names)})")
-            return "\n".join(schema_str)
-    except Exception as e:
-        print(f"Error getting schema: {str(e)}")
-        return f"Error getting schema: {str(e)}"
+def get_simple_schema():
+    """Simplified schema extraction"""
+    if not DB_URL:
+        return "Error: DATABASE_URL not found"
     
-DB_SCHEMA=get_db_Schema()
+    try:
+        conn = psycopg2.connect(DB_URL, sslmode='require')
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT 
+                t.table_name,
+                c.column_name,
+                c.data_type,
+                c.is_nullable
+            FROM information_schema.tables t
+            JOIN information_schema.columns c 
+                ON t.table_name = c.table_name
+                AND t.table_schema = c.table_schema
+            WHERE t.table_schema = 'public'
+                AND t.table_type = 'BASE TABLE'
+            ORDER BY t.table_name, c.ordinal_position;
+        """)
+        
+        rows = cursor.fetchall()
+        
+        schema_dict = {}
+        for table, column, data_type, nullable in rows:
+            if table not in schema_dict:
+                schema_dict[table] = []
+            null_str = " NOT NULL" if nullable == 'NO' else ""
+            schema_dict[table].append(f"{column} {data_type}{null_str}")
+        
+        schema_lines = []
+        for table, columns in schema_dict.items():
+            schema_lines.append(f"Table: {table}")
+            schema_lines.append(f"  Columns: {', '.join(columns)}")
+            schema_lines.append("")
+        
+        cursor.close()
+        conn.close()
+        
+        return "\n".join(schema_lines) if schema_lines else "No tables found"
+        
+    except Exception as e:
+        return f"Error: {str(e)}"
+    
+DB_SCHEMA=get_simple_schema()
 
 @tool
 def query_sql_db(query: str)->List[Any]:
@@ -51,15 +81,19 @@ def query_sql_db(query: str)->List[Any]:
     Input must be valid SQLite syntax.
     Do not use for general policy questions.
     """
+    if not query.strip().upper().startswith("SELECT"):
+        return ["Error: Only SELECT queries are allowed for security reasons."]
+
     try:
-        with sqlite3.connect('../data/orders.db') as db_con:
-            cursor=db_con.cursor()
+        # Use a fresh connection for each query (stateless)
+        with psycopg2.connect(DB_URL, sslmode='require') as conn:
+            with conn.cursor() as cursor:
 
-            cursor.execute(query)
+                cursor.execute(query)
 
-            res=cursor.fetchall()
-            #print(res)
-            return res if res else ["No results found"]
+                res=cursor.fetchall()
+                #print(res)
+                return res if res else ["No results found"]
     except Exception as e:
         print(f"SQL Error:{str(e)}")
         return [f"SQL Error:{str(e)}"]

@@ -2,8 +2,11 @@ import os
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import create_react_agent
-from langgraph.checkpoint.memory import MemorySaver
+#from langgraph.checkpoint.memory import MemorySaver
 from tools import query_policy_rag,query_sql_db,DB_SCHEMA,generate_return_label,file_ticket
+from psycopg.rows import dict_row
+from psycopg_pool import ConnectionPool
+from langgraph.checkpoint.postgres import PostgresSaver
 
 load_dotenv()
 if not os.getenv("GITHUB_API_KEY"):
@@ -15,7 +18,7 @@ llm=ChatOpenAI(
         temperature=0,
         api_key=os.getenv("GITHUB_API_KEY")
 )
-
+#print(f"Database Schema:\n{DB_SCHEMA}")
 system_prompt=f"""
 You are a senior Customer Support Agent for Omni-Support Inc.
 
@@ -30,7 +33,8 @@ You are a senior Customer Support Agent for Omni-Support Inc.
    - Example: "Can I cancel my order?" -> Use RAG, do not query DB.
 
 DATA CONTEXT:
-- Database Schema: {DB_SCHEMA}
+- This is the Database Schema: {DB_SCHEMA}
+- Use the Database Schema for correct column names in sql queries.
 - **PRICING**: The 'Price' column is in **DOLLARS**. Always add '$' sign when display the price. 
 
 ### 4. CRITICAL OUTPUT RULES
@@ -49,11 +53,33 @@ MEMORY:
 - You have memory of this conversation. If the user provided an Order ID earlier, reuse it.
 """
 
-memory=MemorySaver()
+#memory=MemorySaver()
+
+# pool = ConnectionPool(
+#     conninfo=os.getenv("DATABASE_URL"),
+#     max_size=20,
+#     kwargs={"autocommit": True, "row_factory": dict_row,"prepare_threshold":None} # <--- MUST match setup
+# )
+#checkpointer = PostgresSaver(pool)
+
+pool = ConnectionPool(
+    conninfo=os.getenv("DATABASE_URL"),
+    kwargs={
+        "autocommit": True, 
+        "row_factory": dict_row,
+        "prepare_threshold": None 
+    }
+)
+
+checkpointer = PostgresSaver(pool)
+
+checkpointer.setup()
 
 graph=create_react_agent(
         model=llm,
         tools=[query_policy_rag,query_sql_db,generate_return_label,file_ticket],
         prompt=system_prompt,
-        checkpointer=memory
+        checkpointer=checkpointer
 )
+
+#print("Agent initialized successfully with PostgreSQL persistence")

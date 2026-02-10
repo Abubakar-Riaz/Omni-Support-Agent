@@ -4,6 +4,7 @@ from fastapi import FastAPI,HTTPException
 from bot import graph
 from pydantic import BaseModel
 from typing import List, Optional
+from langchain_core.messages import HumanMessage, AIMessage
 
 app=FastAPI(
     title="Omni-Support Agent API",
@@ -24,6 +25,43 @@ class ChatResponse(BaseModel):
 def health_check():
     return {"status":"running","service":"Omni-Support Agent"}
 
+# --- ADD ToolMessage TO IMPORTS ---
+from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
+
+# ... (inside your server.py) ...
+
+@app.get("/history/{thread_id}")
+def get_history(thread_id: str):
+    try:
+        config = {"configurable": {"thread_id": thread_id}}
+        
+        # 1. Get the latest state snapshot
+        state_snapshot = graph.get_state(config)
+        
+        # 2. Extract messages
+        messages = state_snapshot.values.get("messages", [])
+        
+        formatted_history = []
+        for msg in messages:
+            # FILTER 1: Skip Raw Tool Outputs (The ugly lists/JSON)
+            if isinstance(msg, ToolMessage):
+                continue
+            
+            # FILTER 2: Skip AI "Thinking" messages (Empty content, just tool calls)
+            if isinstance(msg, AIMessage) and not msg.content:
+                continue
+            
+            # Determine Role
+            role = "user" if isinstance(msg, HumanMessage) else "ai"
+            content = msg.content
+            
+            formatted_history.append({"role": role, "content": content})
+            
+        return {"history": formatted_history}
+
+    except Exception as e:
+        raise HTTPException(status_code=404, detail="History not found")
+       
 @app.post("/chat")
 def chat_endpoint(req:ChatRequest):
     try:

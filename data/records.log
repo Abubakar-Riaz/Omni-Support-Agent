@@ -11,3 +11,5 @@
 [2026-02-10 20:18:09] TICKET: TKT-F8B61C | Order: ORD0001 | Issue: Customer requested refund calculation. | Priority: Normal
 [2026-02-10 21:07:58] TICKET: TKT-36E237 | Order: ORD0006 | Issue: Request to cancel order | Priority: Normal
 [2026-02-10 21:09:24] TICKET: TKT-92CE13 | Order: ORD0001 | Issue: Request for compensation due to delayed order | Priority: Normal
+[2026-02-11 20:42:51] TICKET: TKT-03F29B | User:2 | Order: ORD0008 | Issue: Requesting compensation for delayed order. | Priority: High
+[2026-02-11 20:44:38] TICKET: TKT-372FAB | User:2 | Order: ORD0008 | Issue: Requesting to apply 10% compensation discount for delayed order. | Priority: Normal

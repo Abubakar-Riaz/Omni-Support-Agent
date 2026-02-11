@@ -148,7 +148,8 @@ def chat_endpoint(req: ChatRequest):
                 print(f"Database Link Error: {db_e}")
                 
         config = {"configurable": {"thread_id": thread_id}}
-        input_message = {"messages": [("user", req.query)]}
+        security_context = f"SYSTEM_NOTE: The current user has ID {req.user_id}. You must ONLY fetch or modify orders belonging to User ID {req.user_id}."
+        input_message = {"messages": [("system",security_context),("user", req.query)]}
         output_state = graph.invoke(input_message, config=config)
 
         messages = output_state.get("messages", [])
@@ -188,14 +189,16 @@ def dev_login(req: DevAuthRequest):
 
         cur.execute("SELECT id FROM users WHERE email = %s", (req.email,))
         user = cur.fetchone()
-
+        sub_value=req.email+"dev"
         if not user:
+            print("User not found trying to create")
             cur.execute(
                 "INSERT INTO users (email, google_sub, full_name) VALUES (%s, %s, %s) RETURNING id",
-                (req.email, "dev_user_sub", "Developer Account")
+                (req.email, sub_value, "Developer Account")
             )
             user_id = cur.fetchone()[0]
             conn.commit()
+            print("Created user")
         else:
             user_id = user[0]
         
@@ -203,6 +206,7 @@ def dev_login(req: DevAuthRequest):
         return {"user_id": user_id, "email": req.email, "name": "Developer"}
 
     except Exception as e:
+        print(f"USer Creation error:{e}")
         raise HTTPException(status_code=500, detail=str(e))
     
 @app.put("/rename_thread")

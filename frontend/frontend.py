@@ -3,7 +3,9 @@ from streamlit_oauth import OAuth2Component
 import requests
 import os
 import uuid
+from dotenv import load_dotenv
 
+load_dotenv('../.env')
 API_URL = "http://127.0.0.1:8000"
 st.set_page_config(page_title="Omni-Support Agent", page_icon="🤖")
 
@@ -46,29 +48,35 @@ def rename_dialog(thread_id, current_title):
                     st.error(f"Error: {e}")
 
 # --- 2. LOGIN SCREEN ---
+# --- 2. LOGIN SCREEN ---
 if not st.session_state.user_id:
     st.title("🔒 Sign in to Omni-Support")
     
     tab1, tab2 = st.tabs(["🔑 Developer Login", "G Google Login"])
 
-    # --- TAB 1: DEV LOGIN ---
+    # --- TAB 1: DEV LOGIN (UPDATED) ---
     with tab1:
-        st.write("Use this to bypass the Google library error.")
-        if st.button("Login as Developer (Bypass)", type="primary"):
+        st.write("Use this to simulate different users.")
+        
+        # NEW: Text Input lets you switch identities
+        dev_email = st.text_input("Enter Test Email:", value="test@developer.com")
+        
+        if st.button("Login as this User", type="primary"):
             try:
-                payload = {"email": "test@developer.com"}
+                payload = {"email": dev_email}
                 res = requests.post(f"{API_URL}/auth/dev", json=payload)
                 if res.status_code == 200:
                     user_data = res.json()
                     st.session_state.user_id = user_data["user_id"]
                     st.session_state.email = user_data["email"]
+                    st.success(f"Logged in as ID: {user_data['user_id']}")
                     st.rerun()
                 else:
                     st.error("Server Error")
             except Exception as e:
                 st.error(f"Connection Error: {e}")
 
-    # --- TAB 2: GOOGLE LOGIN ---
+    # --- TAB 2: GOOGLE LOGIN (Keep as is) ---
     with tab2:
         try:
             oauth2 = OAuth2Component(CLIENT_ID, CLIENT_SECRET, AUTHORIZE_URL, TOKEN_URL, TOKEN_URL, REVOKE_URL)
@@ -92,7 +100,6 @@ if not st.session_state.user_id:
                     st.error(f"Connection Error: {e}")
         except:
             st.error("Google Login not available.")
-
 # --- 3. MAIN APPLICATION (LOGGED IN) ---
 else:
     # --- SIDEBAR START ---

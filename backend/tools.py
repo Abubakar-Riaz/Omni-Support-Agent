@@ -9,7 +9,7 @@ from langchain_chroma import Chroma
 from langchain_core.tools import tool
 from typing import List,Any
 
-load_dotenv()
+load_dotenv(dotenv_path="../.env")
 DB_URL = os.getenv("DATABASE_URL")
 VECTOR_DB_PATH='../data/vector_store'
 RECORDS_FILE='../data/records.log'

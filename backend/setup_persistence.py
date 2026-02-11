@@ -4,7 +4,7 @@ from psycopg_pool import ConnectionPool
 from langgraph.checkpoint.postgres import PostgresSaver
 from psycopg.rows import dict_row
 
-load_dotenv()
+load_dotenv(dotenv_path="../.env")
 DB_URL = os.getenv("DATABASE_URL")
 
 #print("Setting up LangGraph Persistence Tables...")

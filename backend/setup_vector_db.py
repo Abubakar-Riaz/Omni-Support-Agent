@@ -7,7 +7,6 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import FastEmbedEmbeddings
 from langchain_chroma import Chroma
 
-# 1. Define a helper to handle Windows permission errors
 def on_rm_error(func, path, exc_info):
     """
     Error handler for shutil.rmtree.

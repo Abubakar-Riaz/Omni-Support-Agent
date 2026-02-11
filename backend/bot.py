@@ -8,7 +8,7 @@ from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 from langgraph.checkpoint.postgres import PostgresSaver
 
-load_dotenv()
+load_dotenv(dotenv_path="../.env")
 if not os.getenv("GITHUB_API_KEY"):
         raise ValueError("GITHUB_API_KEY env not found")
 

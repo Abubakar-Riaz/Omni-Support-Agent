@@ -8,3 +8,6 @@
 [2026-02-09 20:05:01] TICKET: TKT-36AE11 | Order: ORD0001 | Issue: Customer inquiry about order status | Priority: Normal
 [2026-02-09 20:13:29] TICKET: TKT-38325C | Order: ORD0001 | Issue: Customer inquiry about order status and details. | Priority: Normal
 [2026-02-10 17:29:28] TICKET: TKT-02A673 | Order: ORD0001 | Issue: Request for 10% discount due to delayed order | Priority: Normal
+[2026-02-10 20:18:09] TICKET: TKT-F8B61C | Order: ORD0001 | Issue: Customer requested refund calculation. | Priority: Normal
+[2026-02-10 21:07:58] TICKET: TKT-36E237 | Order: ORD0006 | Issue: Request to cancel order | Priority: Normal
+[2026-02-10 21:09:24] TICKET: TKT-92CE13 | Order: ORD0001 | Issue: Request for compensation due to delayed order | Priority: Normal

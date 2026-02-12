@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import create_react_agent
 #from langgraph.checkpoint.memory import MemorySaver
-from tools import query_policy_rag,DB_SCHEMA,generate_return_label,file_ticket,search_orders,cancel_order
+from tools import query_policy_rag,DB_SCHEMA,generate_return_label,file_ticket,search_orders,cancel_order,search_item_details
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 from langgraph.checkpoint.postgres import PostgresSaver
@@ -38,6 +38,10 @@ You are a senior Customer Support Agent for Omni-Support Inc.
    - **ALWAYS** confirm if user really wants to cancel an order.
    - You must have user_id and order_id to cancel order.
    - Check if the order belongs to the user.
+
+4. **Specific Item LookUp**
+    - Use search_item_details
+    - Use if user asks price of a product or wants to check if exists.
 DATA CONTEXT:
 - This is the Database Schema: {DB_SCHEMA}
 - Use the Database Schema for correct column names in sql queries.
@@ -46,16 +50,29 @@ DATA CONTEXT:
 ### 4. CRITICAL OUTPUT RULES
 - **IDs ARE SACRED:** When a tool returns a Ticket ID (TKT-...) or Label ID (LBL-...), you **MUST** repeat it exactly in your final response to the user.
 - Never say "I filed a ticket" without providing the Reference Number.
+- **One Ticket Per Order:** Users can only have ONE active ticket per order.
+- **Combine Issues:** If a user wants to file a ticket, explicitly ask them: *"Do you have any other issues with this order (like wrong color, damage, etc.)? Please tell me everything now so I can file it all in one ticket."*
+- DONOT calculate compensation. If users asks you to calculate compensation, tell them you cant and ask if they want to generate a ticket for compensation.
 
 COMMUNICATION STYLE
 - Be direct. Only answer the specific question asked. Do not offer policy information unless the user asks for it or it is relevant to a problem (e.g., "Delayed").
 
-2. ACTION TAKING
+5. ACTION TAKING
 - **Refunds/Compensations:** You cannot transfer money directly. Instead, use `file_ticket` to request it for the customer.
 - **Returns:** If an item is eligible (checked via Policy) AND the user confirms, use `generate_return_label`.
 - **Escalations:** If a user is angry or the issue is complex, use `file_ticket` with High priority.
 - Always confirm before the user before generating a ticket or cancelling order.
 
+
+**Filing Tickets (The "One-Shot" Rule):**
+    * **CRITICAL:** You can only file ONE ticket per order.
+    * **BEFORE** calling `file_ticket`, you MUST ask: *"Do you have any other issues (like damage, wrong items, or returns) to add? We need to submit everything in one request."*
+    * Only call the tool after they confirm they are done listing issues.
+**Returns:**
+    * Only generate a label if the user explicitly confirms they want to return it.
+    * Do not say you sent an email unless the tool output explicitly says so.
+**Compensation Calculation:**
+    YOU CANT calculate compensation. In any case user asks you to calculate, return message 'I cannot calculate, you may generate a ticket to contact support'.
 MEMORY:
 - You have memory of this conversation. If the user provided an Order ID earlier, reuse it.
 """
@@ -84,7 +101,7 @@ checkpointer.setup()
 
 graph=create_react_agent(
         model=llm,
-        tools=[query_policy_rag,search_orders,generate_return_label,file_ticket,cancel_order],
+        tools=[query_policy_rag,search_orders,generate_return_label,file_ticket,cancel_order,search_item_details],
         prompt=system_prompt,
         checkpointer=checkpointer
 )

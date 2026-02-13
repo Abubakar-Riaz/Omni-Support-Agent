@@ -10,6 +10,7 @@ from google.auth.transport import requests as google_requests
 import psycopg2
 from dotenv import load_dotenv
 import os
+from tools import get_db_connection,release_db_connection
 
 load_dotenv(dotenv_path="../.env")
 GOOGLE_CLIENT_ID = os.getenv("CLIENT_ID")
@@ -44,6 +45,7 @@ def health_check():
 
 @app.post("/auth/google")
 def google_login(req: GoogleAuthRequest):
+    conn=None
     try:
         id_info = id_token.verify_oauth2_token(
             req.token, 
@@ -54,7 +56,8 @@ def google_login(req: GoogleAuthRequest):
         google_sub = id_info['sub']
         name = id_info.get('name', '')
 
-        conn = psycopg2.connect(DB_URL, sslmode='require')
+        #conn = psycopg2.connect(DB_URL, sslmode='require')
+        conn=get_db_connection()
         cur = conn.cursor()
         
         cur.execute("SELECT id FROM users WHERE email = %s", (email,))
@@ -69,8 +72,6 @@ def google_login(req: GoogleAuthRequest):
             conn.commit()
         else:
             user_id = user[0]
-        
-        conn.close()
 
         return {"user_id": user_id, "email": email, "name": name}
 
@@ -78,11 +79,14 @@ def google_login(req: GoogleAuthRequest):
         raise HTTPException(status_code=401, detail="Invalid Google Token")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        release_db_connection(conn)
 
 @app.get("/user/threads/{user_id}")
 def get_user_threads(user_id: int):
+    conn=None
     try:
-        conn = psycopg2.connect(DB_URL, sslmode='require')
+        conn = get_db_connection()
         cur = conn.cursor()
         cur.execute("SELECT thread_id, created_at, title FROM user_threads WHERE user_id = %s ORDER BY created_at DESC", (user_id,))
         threads = []
@@ -92,11 +96,13 @@ def get_user_threads(user_id: int):
                 "date": str(row[1]),
                 "title": row[2] or "New Chat"
             })
-        conn.close()
+        
         return {"threads": threads}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    
+    finally:
+        release_db_connection(conn)
+
 @app.get("/history/{thread_id}")
 def get_history(thread_id: str):
     try:
@@ -130,8 +136,9 @@ def chat_endpoint(req: ChatRequest):
         thread_id = req.thread_id or str(uuid.uuid4())
 
         if req.user_id:
+            conn=None
             try:
-                conn = psycopg2.connect(DB_URL, sslmode='require')
+                conn = get_db_connection()
                 cur = conn.cursor()
                 # We add 'title' to the INSERT
                 cur.execute(
@@ -143,10 +150,11 @@ def chat_endpoint(req: ChatRequest):
                     (req.user_id, thread_id, "New Chat")
                 )
                 conn.commit()
-                conn.close()
             except Exception as db_e:
                 print(f"Database Link Error: {db_e}")
-                
+            finally:
+                release_db_connection(conn)
+
         config = {"configurable": {"thread_id": thread_id}}
         security_context = f"SYSTEM_NOTE: The current user has ID {req.user_id}. You must ONLY fetch or modify orders belonging to User ID {req.user_id}."
         input_message = {"messages": [("system",security_context),("user", req.query)]}
@@ -183,8 +191,9 @@ class DevAuthRequest(BaseModel):
 
 @app.post("/auth/dev")
 def dev_login(req: DevAuthRequest):
+    conn=None
     try:
-        conn = psycopg2.connect(DB_URL, sslmode='require')
+        conn = get_db_connection()
         cur = conn.cursor()
 
         cur.execute("SELECT id FROM users WHERE email = %s", (req.email,))
@@ -202,24 +211,27 @@ def dev_login(req: DevAuthRequest):
         else:
             user_id = user[0]
         
-        conn.close()
         return {"user_id": user_id, "email": req.email, "name": "Developer"}
 
     except Exception as e:
         print(f"USer Creation error:{e}")
         raise HTTPException(status_code=500, detail=str(e))
-    
+    finally:
+        release_db_connection(conn)
+
 @app.put("/rename_thread")
 def rename_thread(req: RenameRequest):
+    conn=None
     try:
-        conn = psycopg2.connect(DB_URL, sslmode='require')
+        conn = get_db_connection()
         cur = conn.cursor()
         cur.execute("UPDATE user_threads SET title = %s WHERE thread_id = %s", (req.title, req.thread_id))
         conn.commit()
-        conn.close()
         return {"msg": "Renamed"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        release_db_connection(conn)
 
 if __name__=="__main__":
     uvicorn.run(app,host="127.0.0.1",port=8000)
